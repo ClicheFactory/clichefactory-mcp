@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor for additive features, patch for bugfix / dependency
 bump / docs).
 
+## [0.1.8] — 2026-05-18
+
+### Added
+
+- Added Open Plugins metadata for cursor.directory discovery, including
+  `.plugin/plugin.json`, root `.mcp.json`, and a discoverable
+  `skills/clichefactory/SKILL.md`.
+
+### Changed
+
+- Updated MCP Registry and Open Plugins descriptions to:
+  "Extract structured JSON from PDFs, images, DOCX, XLSX, CSV, EML with
+  attachments, train your DSPy pipelines and more using ClicheFactory."
+
 ## [0.1.7] — 2026-05-18
 
 ### Added

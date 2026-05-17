@@ -1,0 +1,23 @@
+{
+  "name": "clichefactory",
+  "version": "0.1.8",
+  "description": "Extract structured JSON from PDFs, images, DOCX, XLSX, CSV, EML with attachments, train your DSPy pipelines and more using ClicheFactory.",
+  "author": {
+    "name": "Urban Susnik s.p.",
+    "email": "info@clichefactory.com",
+    "url": "https://clichefactory.com"
+  },
+  "homepage": "https://clichefactory.com",
+  "repository": "https://github.com/ClicheFactory/clichefactory-mcp",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "document-extraction",
+    "ocr",
+    "pdf",
+    "structured-data",
+    "dspy"
+  ],
+  "mcpServers": "./.mcp.json",
+  "skills": "./skills/"
+}

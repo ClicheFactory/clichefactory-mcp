@@ -2,19 +2,19 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ClicheFactory/clichefactory-mcp",
   "title": "ClicheFactory Document Intelligence",
-  "description": "Extract JSON from documents, emails with attachments, and custom DSPy-trained pipelines.",
+  "description": "Extract structured JSON from PDFs, images, DOCX, XLSX, CSV, EML with attachments, train your DSPy pipelines and more using ClicheFactory.",
   "websiteUrl": "https://clichefactory.com",
   "repository": {
     "url": "https://github.com/ClicheFactory/clichefactory-mcp",
     "source": "github"
   },
-  "version": "0.1.7",
+  "version": "0.1.8",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "clichefactory-mcp",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

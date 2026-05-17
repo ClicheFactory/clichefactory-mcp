@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "clichefactory": {
+      "command": "uvx",
+      "args": ["clichefactory-mcp"]
+    }
+  }
+}
