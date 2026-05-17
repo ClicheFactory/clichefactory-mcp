@@ -1,5 +1,7 @@
 # clichefactory-mcp
 
+<!-- mcp-name: io.github.ClicheFactory/clichefactory-mcp -->
+
 MCP (Model Context Protocol) server for [ClicheFactory](https://clichefactory.com) — structured data extraction from documents.
 
 This server exposes ClicheFactory's extraction and document conversion capabilities as MCP tools, allowing AI assistants in Cursor, Claude Desktop, OpenClaw, and other MCP-compatible clients to extract structured data from PDFs, images, DOCX, XLSX, CSV, EML, and more.

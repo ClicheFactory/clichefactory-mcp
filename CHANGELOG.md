@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor for additive features, patch for bugfix / dependency
 bump / docs).
 
+## [0.1.7] — 2026-05-18
+
+### Added
+
+- Added MCP Registry verification metadata for
+  `io.github.ClicheFactory/clichefactory-mcp`.
+- Added `server.json` for publishing `clichefactory-mcp` to the
+  official MCP Registry, including discovery metadata for document
+  extraction, emails with attachments, and custom DSPy-trained
+  pipelines.
+
 ## [0.1.6] — 2026-05-14
 
 ### Changed
