@@ -172,7 +172,7 @@ git push origin vX.Y.Z
 Only useful if you want pretty release notes / downloadable artifacts.
 PyPI is the source of truth for `pip install`.
 
-1. https://github.com/nouveau-rubynho/clichefactory-mcp/releases
+1. https://github.com/ClicheFactory/clichefactory-mcp/releases
 2. **Draft a new release**
 3. Choose the existing tag `vX.Y.Z`, target `main`
 4. Title: `vX.Y.Z`

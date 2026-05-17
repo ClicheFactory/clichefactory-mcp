@@ -26,7 +26,7 @@ clichefactory-mcp = "cliche_mcp:main"
 
 [project.urls]
 Homepage = "https://clichefactory.com"
-Repository = "https://github.com/nouveau-rubynho/clichefactory-mcp"
+Repository = "https://github.com/ClicheFactory/clichefactory-mcp"
 
 [tool.hatch.version]
 path = "cliche_mcp/__about__.py"
