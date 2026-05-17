@@ -6,14 +6,34 @@ startCommand:
     properties:
       CLICHEFACTORY_API_KEY:
         type: string
-        description: "Your ClicheFactory API key for cloud mode. Leave blank if running 100% locally."
+        description: "ClicheFactory API key for cloud/service mode."
+      LLM_MODEL_NAME:
+        type: string
+        description: "Model name for local mode, for example gemini/gemini-3-flash-preview."
+      LLM_API_KEY:
+        type: string
+        description: "LLM provider API key for local mode."
+      OCR_MODEL_NAME:
+        type: string
+        description: "Optional OCR/VLM model override."
+      OCR_API_KEY:
+        type: string
+        description: "Optional OCR/VLM provider API key."
   commandFunction: |-
     (config) => ({
       command: 'uvx',
       args: ['clichefactory-mcp'],
       env: {
-        CLICHEFACTORY_API_KEY: config.CLICHEFACTORY_API_KEY || ''
+        CLICHEFACTORY_API_KEY: config.CLICHEFACTORY_API_KEY || '',
+        LLM_MODEL_NAME: config.LLM_MODEL_NAME || '',
+        LLM_API_KEY: config.LLM_API_KEY || '',
+        OCR_MODEL_NAME: config.OCR_MODEL_NAME || '',
+        OCR_API_KEY: config.OCR_API_KEY || ''
       }
     })
   exampleConfig:
     CLICHEFACTORY_API_KEY: "cliche-your-key-here"
+    LLM_MODEL_NAME: "gemini/gemini-3-flash-preview"
+    LLM_API_KEY: ""
+    OCR_MODEL_NAME: ""
+    OCR_API_KEY: ""
