@@ -1,0 +1,19 @@
+# Smithery.ai configuration file
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      CLICHEFACTORY_API_KEY:
+        type: string
+        description: "Your ClicheFactory API key for cloud mode. Leave blank if running 100% locally."
+  commandFunction: |-
+    (config) => ({
+      command: 'uvx',
+      args: ['clichefactory-mcp'],
+      env: {
+        CLICHEFACTORY_API_KEY: config.CLICHEFACTORY_API_KEY || ''
+      }
+    })
+  exampleConfig:
+    CLICHEFACTORY_API_KEY: "cliche-your-key-here"
