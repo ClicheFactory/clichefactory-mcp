@@ -17,9 +17,11 @@ bump / docs).
 
 ### Changed
 
-- Updated MCP Registry and Open Plugins descriptions to:
+- Updated Open Plugins description to:
   "Extract structured JSON from PDFs, images, DOCX, XLSX, CSV, EML with
   attachments, train your DSPy pipelines and more using ClicheFactory."
+- Updated MCP Registry description with a shorter variant to fit the
+  registry's 100-character limit.
 
 ## [0.1.7] — 2026-05-18
 
