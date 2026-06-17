@@ -3,16 +3,18 @@ startCommand:
   type: stdio
   configSchema:
     type: object
+    required:
+      - CLICHEFACTORY_API_KEY
     properties:
       CLICHEFACTORY_API_KEY:
         type: string
-        description: "ClicheFactory API key for cloud/service mode."
+        description: "ClicheFactory API key from Settings → API Keys (cliche-...). Free pages at clichefactory.com."
       LLM_MODEL_NAME:
         type: string
-        description: "Model name for local mode, for example gemini/gemini-3-flash-preview."
+        description: "Optional — model name for local/BYOK mode only."
       LLM_API_KEY:
         type: string
-        description: "LLM provider API key for local mode."
+        description: "Optional — LLM provider API key for local/BYOK mode only."
       OCR_MODEL_NAME:
         type: string
         description: "Optional OCR/VLM model override."
@@ -33,7 +35,3 @@ startCommand:
     })
   exampleConfig:
     CLICHEFACTORY_API_KEY: "cliche-your-key-here"
-    LLM_MODEL_NAME: "gemini/gemini-3-flash-preview"
-    LLM_API_KEY: ""
-    OCR_MODEL_NAME: ""
-    OCR_API_KEY: ""

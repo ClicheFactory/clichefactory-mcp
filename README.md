@@ -6,6 +6,29 @@ MCP (Model Context Protocol) server for [ClicheFactory](https://clichefactory.co
 
 This server exposes ClicheFactory's extraction and document conversion capabilities as MCP tools, allowing AI assistants in Cursor, Claude Desktop, OpenClaw, and other MCP-compatible clients to extract structured data from PDFs, images, DOCX, XLSX, CSV, EML, and more.
 
+## Quick start (recommended — service mode)
+
+Service mode uses the ClicheFactory cloud for the best extraction quality. You only need one API key.
+
+1. **Sign up** at [clichefactory.com](https://clichefactory.com) — free pages included, no credit card required.
+2. **Create an API key** in [Settings → API Keys](https://clichefactory.com) (format: `cliche-...`).
+3. **Install** the MCP server:
+
+   ```bash
+   pip install clichefactory-mcp
+   ```
+
+4. **Configure** — either paste the key into your MCP client (see below) **or** run once in a terminal:
+
+   ```bash
+   pip install clichefactory   # if you don't have the CLI yet
+   clichefactory configure
+   ```
+
+   The interactive wizard saves credentials to `~/.clichefactory/config.toml`, which the MCP server reads automatically.
+
+That's it — one env var (`CLICHEFACTORY_API_KEY`) or a config file, and you're on hosted extraction.
+
 ## Tools
 
 | Tool | Description |
@@ -22,8 +45,8 @@ Supports all extraction modes:
 
 | Mode | Description | Requires |
 |------|-------------|----------|
-| *(default)* | OCR + LLM extraction | local: LLM key · service: API key |
-| `fast` | Fastest pipeline | Same as default |
+| *(default)* | OCR + LLM extraction | Service API key (recommended) |
+| `fast` | Fastest pipeline | Service API key |
 | `trained` | Trained pipeline artifact | Service + `artifact_id` |
 | `robust` | Two-stage extract + verify | Service only |
 | `robust-trained` | Trained extract + verification | Service + `artifact_id` |
@@ -42,11 +65,11 @@ Runs diagnostics on the ClicheFactory setup — config file, API keys, Python de
 
 ## Execution Modes
 
-The server supports two modes, matching the SDK and CLI:
+The server defaults to **service mode** (ClicheFactory cloud). Local mode is available for BYOK / air-gapped use.
 
-- **`local`** — Runs extraction on your machine. You bring your own LLM key (BYOK). Supports Gemini, OpenAI, Anthropic, and Ollama models. Requires the `clichefactory[local]` dependencies for document parsing.
+- **`service`** *(recommended)* — Uses the ClicheFactory cloud service. Requires a ClicheFactory API key. Supports all extraction modes including trained pipelines and robust verification. Best extraction quality out of the box.
 
-- **`service`** — Uses the ClicheFactory cloud service. Requires a ClicheFactory API key. Supports all extraction modes including trained pipelines and robust verification. Optionally accepts BYOK model overrides.
+- **`local`** *(advanced)* — Runs extraction on your machine. You bring your own LLM key (BYOK). Requires `pip install "clichefactory-mcp[local]"` (~2 GB of parsing/OCR dependencies) plus system binaries (tesseract, LibreOffice). Quality depends on your local setup.
 
 ## Installation
 
@@ -61,7 +84,7 @@ The server supports two modes, matching the SDK and CLI:
 pip install clichefactory-mcp
 ```
 
-For local-mode extraction (document parsing on your machine), install with the local extras:
+For local-mode extraction (BYOK, runs on your machine), install with the local extras:
 
 ```bash
 pip install "clichefactory-mcp[local]"
@@ -75,14 +98,14 @@ Set these in your MCP client configuration (see below) or in `~/.clichefactory/c
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CLICHEFACTORY_API_KEY` | Service mode | ClicheFactory API key (format: `cliche-...`) |
+| `CLICHEFACTORY_API_KEY` | **Yes** (service mode) | ClicheFactory API key from Settings → API Keys (`cliche-...`) |
 | `CLICHEFACTORY_API_URL` | No | Override the default service URL (`https://api.clichefactory.com`); useful for local development against a self-hosted ClicheFactory backend |
-| `LLM_MODEL_NAME` | Local mode | Model name, e.g. `gemini/gemini-3-flash-preview` |
-| `LLM_API_KEY` | Local mode | API key for the LLM provider |
+| `LLM_MODEL_NAME` | Local mode only | Model name, e.g. `gemini/gemini-3-flash-preview` |
+| `LLM_API_KEY` | Local mode only | API key for the LLM provider |
 | `OCR_MODEL_NAME` | No | Separate OCR/VLM model (defaults to main model) |
 | `OCR_API_KEY` | No | API key for OCR model (defaults to main key) |
 
-The config file at `~/.clichefactory/config.toml` (created by `clichefactory configure`) is also respected. Environment variables take precedence over the config file.
+Environment variables take precedence over the config file at `~/.clichefactory/config.toml`.
 
 ### Cursor
 
@@ -92,31 +115,21 @@ Add to `.cursor/mcp.json` in your project (or global Cursor settings):
 {
   "mcpServers": {
     "clichefactory": {
-      "command": "uv",
-      "args": ["--directory", "/absolute/path/to/cliche-mcp", "run", "clichefactory-mcp"],
-      "env": {
-        "LLM_MODEL_NAME": "gemini/gemini-3-flash-preview",
-        "LLM_API_KEY": "your-gemini-api-key"
-      }
-    }
-  }
-}
-```
-
-For service mode:
-
-```json
-{
-  "mcpServers": {
-    "clichefactory": {
-      "command": "uv",
-      "args": ["--directory", "/absolute/path/to/cliche-mcp", "run", "clichefactory-mcp"],
+      "command": "uvx",
+      "args": ["clichefactory-mcp"],
       "env": {
         "CLICHEFACTORY_API_KEY": "cliche-your-key-here"
       }
     }
   }
 }
+```
+
+For local development from a git checkout, replace `uvx` with:
+
+```json
+"command": "uv",
+"args": ["--directory", "/absolute/path/to/cliche-mcp", "run", "clichefactory-mcp"]
 ```
 
 ### Claude Desktop
@@ -127,11 +140,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 {
   "mcpServers": {
     "clichefactory": {
-      "command": "uv",
-      "args": ["--directory", "/absolute/path/to/cliche-mcp", "run", "clichefactory-mcp"],
+      "command": "uvx",
+      "args": ["clichefactory-mcp"],
       "env": {
-        "LLM_MODEL_NAME": "gemini/gemini-3-flash-preview",
-        "LLM_API_KEY": "your-gemini-api-key"
+        "CLICHEFACTORY_API_KEY": "cliche-your-key-here"
       }
     }
   }
@@ -143,13 +155,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 Register the MCP server with your [OpenClaw](https://github.com/openclaw/openclaw) agent:
 
 ```bash
-openclaw mcp set clichefactory '{"command":"uv","args":["--directory","/absolute/path/to/cliche-mcp","run","clichefactory-mcp"],"env":{"LLM_MODEL_NAME":"gemini/gemini-3-flash-preview","LLM_API_KEY":"your-gemini-api-key"}}'
-```
-
-For service mode:
-
-```bash
-openclaw mcp set clichefactory '{"command":"uv","args":["--directory","/absolute/path/to/cliche-mcp","run","clichefactory-mcp"],"env":{"CLICHEFACTORY_API_KEY":"cliche-your-key-here"}}'
+openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"CLICHEFACTORY_API_KEY":"cliche-your-key-here"}}'
 ```
 
 Verify with `openclaw mcp list`. The agent can now use `extract`, `to_markdown`, and `doctor` tools in any conversation.
@@ -166,11 +172,9 @@ Or, once published to ClawHub:
 openclaw skills install clichefactory
 ```
 
-### When published on PyPI
+### Local mode (advanced)
 
-Once `clichefactory-mcp` is on PyPI, replace the command in any of the above configurations with `uvx`:
-
-**Cursor / Claude Desktop:**
+If you prefer BYOK extraction on your machine, install the local extras and set LLM credentials:
 
 ```json
 {
@@ -187,11 +191,7 @@ Once `clichefactory-mcp` is on PyPI, replace the command in any of the above con
 }
 ```
 
-**OpenClaw:**
-
-```bash
-openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"LLM_MODEL_NAME":"gemini/gemini-3-flash-preview","LLM_API_KEY":"your-gemini-api-key"}}'
-```
+Pass `mode="local"` explicitly in tool calls, or run `clichefactory configure --local` to set local as the default in `~/.clichefactory/config.toml`.
 
 ## Supported File Types
 

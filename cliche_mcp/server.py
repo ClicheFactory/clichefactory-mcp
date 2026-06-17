@@ -21,10 +21,10 @@ mcp = FastMCP(
         "- extract: Pull structured JSON from a document using a schema.\n"
         "- to_markdown: Convert a document to readable markdown.\n"
         "- doctor: Check configuration and dependencies.\n\n"
-        "Two execution modes (set via the mode parameter):\n"
-        "- local: Runs on the user's machine with their own LLM key (BYOK).\n"
-        "- service: Uses ClicheFactory cloud (needs CLICHEFACTORY_API_KEY).\n\n"
-        "If extraction fails in one mode, retry with the other mode before giving up. "
+        "Default execution mode is service (ClicheFactory cloud) — best quality, "
+        "requires CLICHEFACTORY_API_KEY from clichefactory.com → Settings → API Keys.\n"
+        "Local mode (BYOK) is available via mode=\"local\" for advanced users.\n\n"
+        "If extraction fails, call doctor to check credentials. "
         "If extract returns a validation error, try to_markdown first to inspect the "
         "document, then build a better schema from what you see.\n\n"
         "Run doctor when something fails to check what is configured."
@@ -50,7 +50,7 @@ async def extract(
     schema describing the fields to extract. Returns the extracted data as JSON.
 
     If extraction fails or returns a validation error, try:
-    1. Switching mode (e.g. mode="service" if local failed, or vice versa).
+    1. Calling doctor to verify the ClicheFactory API key is configured.
     2. Using to_markdown first to inspect the document, then adjusting the schema.
     3. Using extraction_mode="fast" for simpler documents.
 
@@ -59,8 +59,9 @@ async def extract(
         schema: Either an absolute file path to a JSON schema, or an inline
             JSON schema object. Example inline schema:
             {"type": "object", "properties": {"invoice_number": {"type": "string"}, "total": {"type": "number"}}}
-        mode: Execution mode — "local" (BYOK, runs on user's machine) or
-            "service" (ClicheFactory cloud). Defaults to config file setting.
+        mode: Execution mode — "service" (ClicheFactory cloud, default) or
+            "local" (BYOK, runs on user's machine). Auto-detected from credentials
+            when omitted.
         extraction_mode: Extraction strategy. Options:
             - omit for standard OCR + LLM extraction (most reliable).
             - "fast" — send raw bytes to a multimodal LLM, skipping OCR (faster).
@@ -127,7 +128,8 @@ async def to_markdown(
 
     Args:
         file: Absolute path to the document file.
-        mode: Client mode — "local" or "service". Defaults to config file setting.
+        mode: Client mode — "service" (default) or "local". Auto-detected from
+            credentials when omitted.
         conversion_mode: Conversion mode (service mode only). Options:
             - omit for standard OCR + LLM conversion (most reliable).
             - "fast" — send raw bytes to a multimodal LLM, skipping OCR (faster).

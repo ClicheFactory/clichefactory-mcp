@@ -8,13 +8,13 @@
     "url": "https://github.com/ClicheFactory/clichefactory-mcp",
     "source": "github"
   },
-  "version": "0.1.8",
+  "version": "0.1.9",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "clichefactory-mcp",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
@@ -22,7 +22,7 @@
       "environmentVariables": [
         {
           "name": "CLICHEFACTORY_API_KEY",
-          "description": "ClicheFactory API key for service mode.",
+          "description": "ClicheFactory API key (required). Create at clichefactory.com → Settings → API Keys.",
           "isSecret": true
         },
         {
@@ -31,11 +31,11 @@
         },
         {
           "name": "LLM_MODEL_NAME",
-          "description": "Model name for local mode, for example gemini/gemini-3-flash-preview."
+          "description": "Optional — model name for local/BYOK mode only."
         },
         {
           "name": "LLM_API_KEY",
-          "description": "LLM provider API key for local mode.",
+          "description": "Optional — LLM provider API key for local/BYOK mode only.",
           "isSecret": true
         },
         {

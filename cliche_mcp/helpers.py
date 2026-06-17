@@ -44,6 +44,26 @@ def resolve_schema(schema: str | dict[str, Any]) -> dict[str, Any]:
 # Client construction
 # ---------------------------------------------------------------------------
 
+_SERVICE_KEY_HINT = (
+    "Create a free API key at clichefactory.com → Settings → API Keys, "
+    "then set CLICHEFACTORY_API_KEY in your MCP client config "
+    'or run "clichefactory configure" in a terminal.'
+)
+
+
+def _resolve_mode(*, mode: str | None, cfg: CLIConfig) -> str:
+    """Pick execution mode: explicit param > credentials > config default."""
+    if mode:
+        return mode
+    if resolve_api_key(cli_flag=None, cfg=cfg):
+        return "service"
+    model_name = resolve_model(cli_flag=None, cfg=cfg)
+    model_key = resolve_model_api_key(cli_flag=None, cfg=cfg)
+    if model_name and model_key:
+        return "local"
+    return cfg.default_mode
+
+
 def build_client(
     *,
     mode: str | None = None,
@@ -58,7 +78,7 @@ def build_client(
         tool parameter → environment variable → ~/.clichefactory/config.toml → default
     """
     cfg = load_config()
-    resolved_mode = mode or cfg.default_mode
+    resolved_mode = _resolve_mode(mode=mode, cfg=cfg)
 
     if resolved_mode == "service":
         api_key = resolve_api_key(cli_flag=None, cfg=cfg)
@@ -67,11 +87,7 @@ def build_client(
                 ErrorInfo(
                     code="mcp.missing_api_key",
                     message="No ClicheFactory API key configured for service mode.",
-                    hint=(
-                        'Try mode="local" instead if an LLM key is configured. '
-                        "Otherwise set CLICHEFACTORY_API_KEY in the MCP server environment, "
-                        'or run "clichefactory configure" in a terminal.'
-                    ),
+                    hint=_SERVICE_KEY_HINT,
                 )
             )
         base_url = resolve_base_url(cli_flag=None, cfg=cfg)
@@ -159,22 +175,29 @@ def run_doctor() -> str:
     lines.append("ClicheFactory Doctor")
     lines.append("")
 
+    cfg = load_config()
+    effective_mode = _resolve_mode(mode=None, cfg=cfg)
+    api_key = resolve_api_key(cli_flag=None, cfg=cfg)
+
     # --- Config ---
     lines.append("Configuration:")
+    ok(f"Default mode: {effective_mode}")
     cfg_path = config_file_path()
     if cfg_path.is_file():
-        cfg = load_config()
         ok(f"Config file: {cfg_path}")
-        if cfg.default_mode == "service" and cfg.service.api_key:
-            ok(f"Service API key configured ({_mask(cfg.service.api_key)})")
-        elif cfg.default_mode == "service":
-            warn("Service mode selected but no API key configured")
-        if cfg.default_mode == "local" and cfg.local.model:
-            ok(f"Local model: {cfg.local.model}")
-        elif cfg.default_mode == "local":
-            warn("Local mode selected but no model configured")
     else:
-        warn('No config file found. Run "clichefactory configure" to set up.')
+        lines.append("  [INFO] No config file — using env vars or defaults")
+
+    if api_key:
+        ok(f"Service API key configured ({_mask(api_key)})")
+    elif effective_mode == "service":
+        warn("No ClicheFactory API key — create one at clichefactory.com → Settings → API Keys")
+
+    if effective_mode == "local":
+        if cfg.local.model:
+            ok(f"Local model: {cfg.local.model}")
+        else:
+            warn("Local mode but no LLM model configured")
 
     lines.append("")
 
@@ -188,37 +211,44 @@ def run_doctor() -> str:
         except ImportError:
             err(f"{name} (not installed)")
 
-    local_deps = [
-        ("pymupdf", "fitz"),
-        ("docling", "docling"),
-        ("Pillow", "PIL"),
-        ("RapidOCR", "rapidocr"),
-        ("pytesseract", "pytesseract"),
-        ("openpyxl", "openpyxl"),
-        ("python-docx", "docx"),
-        ("pypdf", "pypdf"),
-    ]
-    for name, module in local_deps:
-        try:
-            __import__(module)
-            ok(f"{name} (local)")
-        except ImportError:
-            warn(f"{name} not installed (needed for local mode)")
+    if effective_mode == "service" and api_key:
+        lines.append("  [INFO] Local parsing deps not required in service mode")
+    else:
+        local_deps = [
+            ("pymupdf", "fitz"),
+            ("docling", "docling"),
+            ("Pillow", "PIL"),
+            ("RapidOCR", "rapidocr"),
+            ("pytesseract", "pytesseract"),
+            ("openpyxl", "openpyxl"),
+            ("python-docx", "docx"),
+            ("pypdf", "pypdf"),
+        ]
+        for name, module in local_deps:
+            try:
+                __import__(module)
+                ok(f"{name} (local)")
+            except ImportError:
+                warn(f"{name} not installed (needed for local mode)")
 
     lines.append("")
 
     # --- System binaries ---
-    lines.append("System binaries:")
-    for binary, purpose in [
-        ("tesseract", "tesseract OCR engine"),
-        ("pandoc", ".odt/.doc conversion"),
-        ("soffice", "legacy .doc conversion"),
-    ]:
-        path = shutil.which(binary)
-        if path:
-            ok(f"{binary}: {path}")
-        else:
-            warn(f"{binary} not found on PATH (needed for {purpose})")
+    if effective_mode == "service" and api_key:
+        lines.append("System binaries:")
+        lines.append("  [INFO] Not required in service mode (parsing runs in the cloud)")
+    else:
+        lines.append("System binaries:")
+        for binary, purpose in [
+            ("tesseract", "tesseract OCR engine"),
+            ("pandoc", ".odt/.doc conversion"),
+            ("soffice", "legacy .doc conversion"),
+        ]:
+            path = shutil.which(binary)
+            if path:
+                ok(f"{binary}: {path}")
+            else:
+                warn(f"{binary} not found on PATH (needed for {purpose})")
 
     lines.append("")
 

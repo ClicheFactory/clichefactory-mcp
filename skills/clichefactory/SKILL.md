@@ -15,20 +15,22 @@ The plugin provides the `clichefactory` MCP server with these tools:
 
 ## Configuration
 
-ClicheFactory supports two execution modes:
+**Default: service mode** (ClicheFactory cloud — best extraction quality).
 
-- `service`: Uses ClicheFactory cloud and requires `CLICHEFACTORY_API_KEY`.
-- `local`: Runs extraction locally and requires an LLM model/API key, such as `LLM_MODEL_NAME` and `LLM_API_KEY`.
+1. User needs a ClicheFactory API key from [clichefactory.com → Settings → API Keys](https://clichefactory.com) (`cliche-...`).
+2. Set `CLICHEFACTORY_API_KEY` in the MCP server environment, or run `clichefactory configure` once in a terminal (saves to `~/.clichefactory/config.toml`).
 
-The server also reads `~/.clichefactory/config.toml` created by `clichefactory configure`. Environment variables take precedence.
+**Advanced: local mode** (BYOK) — requires `LLM_MODEL_NAME` and `LLM_API_KEY`, plus `pip install "clichefactory-mcp[local]"`. Only use when the user explicitly wants on-machine extraction.
+
+Environment variables take precedence over the config file.
 
 ## Workflow
 
 1. If the user gives a document and no schema, call `to_markdown` first to inspect the contents.
 2. Build a JSON schema from the user's requested fields and the document contents.
-3. Call `extract` with the file path, schema, and appropriate mode.
+3. Call `extract` with the file path and schema (service mode is the default).
 4. If extraction returns validation errors, adjust the schema or field descriptions and retry.
-5. If extraction fails entirely, try the other mode when credentials are available, then call `doctor`.
+5. If extraction fails entirely, call `doctor` to check whether the API key is configured.
 
 ## Schema Tips
 

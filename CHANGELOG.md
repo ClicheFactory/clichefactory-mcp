@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor for additive features, patch for bugfix / dependency
 bump / docs).
 
+## [0.1.9] — 2026-06-16
+
+### Changed
+
+- **Service mode is now the documented default.** README, skills, Smithery
+  config, and MCP server instructions all lead with
+  `CLICHEFACTORY_API_KEY` instead of local BYOK credentials.
+- Added a Quick Start section covering signup, API key creation, and
+  `clichefactory configure` as the one-time setup path.
+- `build_client()` auto-detects mode from credentials when the `mode`
+  tool parameter is omitted (API key → service, LLM key → local).
+- Improved missing-API-key error hint with a direct onboarding path
+  (clichefactory.com → Settings → API Keys).
+- `doctor` is quieter for service-mode users — local parsing deps and
+  system binaries are reported as informational instead of warnings.
+
 ## [0.1.8] — 2026-05-18
 
 ### Added

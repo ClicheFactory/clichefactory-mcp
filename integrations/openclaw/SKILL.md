@@ -1,7 +1,7 @@
 ---
 name: clichefactory
 description: Extract structured data from documents (PDF, images, DOCX, XLSX, CSV, EML) into validated JSON using ClicheFactory
-metadata: {"openclaw": {"requires": {"bins": ["uvx"]}, "primaryEnv": "LLM_API_KEY", "install": [{"id": "uv", "kind": "uv", "package": "clichefactory-mcp", "bins": ["clichefactory-mcp"], "label": "Install ClicheFactory MCP server (uv)"}]}}
+metadata: {"openclaw": {"requires": {"bins": ["uvx"]}, "primaryEnv": "CLICHEFACTORY_API_KEY", "install": [{"id": "uv", "kind": "uv", "package": "clichefactory-mcp", "bins": ["clichefactory-mcp"], "label": "Install ClicheFactory MCP server (uv)"}]}}
 ---
 
 # ClicheFactory — Structured Document Extraction
@@ -11,14 +11,10 @@ ClicheFactory extracts structured, Pydantic-validated data from documents. Give 
 This skill requires the `clichefactory` MCP server. Register it once:
 
 ```bash
-openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"LLM_MODEL_NAME":"gemini/gemini-3-flash-preview","LLM_API_KEY":"YOUR_KEY"}}'
-```
-
-Or for ClicheFactory cloud (service mode):
-
-```bash
 openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"CLICHEFACTORY_API_KEY":"cliche-your-key"}}'
 ```
+
+Get your API key at [clichefactory.com → Settings → API Keys](https://clichefactory.com). Free pages included, no credit card.
 
 Verify with `openclaw mcp list`.
 
@@ -31,7 +27,7 @@ Primary tool. Takes a document file path and a JSON schema, returns structured J
 **Parameters:**
 - `file` — absolute path to the document
 - `schema` — JSON schema (inline object or path to a `.json` file)
-- `mode` — `"local"` (BYOK) or `"service"` (ClicheFactory cloud)
+- `mode` — `"service"` (default, ClicheFactory cloud) or `"local"` (BYOK, advanced)
 - `extraction_mode` — omit for default OCR+LLM, or `"fast"` for multimodal LLM without OCR
 - `model` — LLM override, e.g. `"openai/gpt-4o"`
 
@@ -41,7 +37,7 @@ Converts a document to readable markdown. Use this to inspect contents before bu
 
 **Parameters:**
 - `file` — absolute path to the document
-- `mode` — `"local"` or `"service"`
+- `mode` — `"service"` (default) or `"local"`
 
 ### doctor
 
@@ -51,9 +47,19 @@ Checks configuration, Python dependencies, and system binaries. Call this when e
 
 1. If the user provides a document without a schema, call `to_markdown` first to see the content.
 2. Build a JSON schema from what you see (or from the user's description of what they need).
-3. Call `extract` with the file and schema.
+3. Call `extract` with the file and schema (service mode is the default).
 4. If extraction returns validation errors, inspect them — the schema may need adjustment (wrong types, missing fields, etc.).
-5. If extraction fails entirely, try switching `mode` (local ↔ service), then call `doctor` to check the setup.
+5. If extraction fails entirely, call `doctor` to check whether the API key is configured.
+
+## Local mode (advanced)
+
+For BYOK / on-machine extraction, install local extras and set LLM credentials:
+
+```bash
+openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"LLM_MODEL_NAME":"gemini/gemini-3-flash-preview","LLM_API_KEY":"YOUR_KEY"}}'
+```
+
+Requires `pip install "clichefactory-mcp[local]"`.
 
 ## Supported File Types
 
