@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor for additive features, patch for bugfix / dependency
 bump / docs).
 
+## [0.2.0rc1] — 2026-11-14
+
+Release candidate: try it with `uvx clichefactory-mcp==0.2.0rc1`.
+
+### Added
+
+- **`balance` tool:** the credit balance of the configured API key's
+  account, the free extraction pages left, and how many pages the balance
+  still buys per extraction mode (`fast`, `balanced`, `robust`) and for
+  to-markdown. Lets an agent check it can afford a batch before starting.
+  Service mode only.
+- **`extract(include_cost=true)`:** wraps the output as
+  `{"result": ..., "cost": {"pages", "credits_used", "credits_per_page"}}`.
+  Without it the output is unchanged. Service mode only; local (BYOK)
+  extractions return a clear error, since nothing is billed.
+
+### Changed
+
+- Requires `clichefactory>=0.9.0`, which also reads each email attachment
+  once (forwarded emails included, with their text) and skips signature
+  logos.
+- Releases are published by GitHub Actions from version tags; final
+  releases also update the MCP registry entry, which had stayed at 0.1.7.
+
 ## [0.1.9] — 2026-06-16
 
 ### Changed

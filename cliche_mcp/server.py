@@ -20,14 +20,17 @@ mcp = FastMCP(
         "Tools:\n"
         "- extract: Pull structured JSON from a document using a schema.\n"
         "- to_markdown: Convert a document to readable markdown.\n"
-        "- doctor: Check configuration and dependencies.\n\n"
+        "- doctor: Check configuration and dependencies.\n"
+        "- balance: Show the credit balance and how many pages it still buys.\n\n"
         "Default execution mode is service (ClicheFactory cloud) — best quality, "
         "requires CLICHEFACTORY_API_KEY from clichefactory.com → Settings → API Keys.\n"
         "Local mode (BYOK) is available via mode=\"local\" for advanced users.\n\n"
         "If extraction fails, call doctor to check credentials. "
         "If extract returns a validation error, try to_markdown first to inspect the "
         "document, then build a better schema from what you see.\n\n"
-        "Run doctor when something fails to check what is configured."
+        "Run doctor when something fails to check what is configured. "
+        "Before a large batch, call balance to check there are enough pages left; "
+        "pass include_cost=true to extract to see what each call cost."
     ),
 )
 
@@ -43,6 +46,7 @@ async def extract(
     model_api_key: str | None = None,
     ocr_model: str | None = None,
     ocr_api_key: str | None = None,
+    include_cost: bool = False,
 ) -> str:
     """Extract structured data from a document using a JSON schema.
 
@@ -74,9 +78,13 @@ async def extract(
         model_api_key: API key for the model override.
         ocr_model: Separate model for OCR/VLM tasks (optional, defaults to main model).
         ocr_api_key: API key for the OCR model.
+        include_cost: Service mode only. When true, the result is wrapped as
+            {"result": <extracted data>, "cost": {"pages", "credits_used",
+            "credits_per_page"}}. credits_used is 0 when free pages covered it.
 
     Returns:
-        JSON string with the extracted data matching the provided schema.
+        JSON string with the extracted data matching the provided schema
+        (wrapped with its cost when include_cost is true).
     """
     try:
         p = Path(file)
@@ -94,7 +102,18 @@ async def extract(
         )
 
         cliche = client.cliche(schema_dict, artifact_id=artifact_id)
-        result = await cliche.extract_async(file=file, mode=extraction_mode)
+        cost = None
+        if include_cost:
+            if client.mode != "service":
+                return (
+                    "Error: include_cost needs service mode. Local (BYOK) extractions "
+                    "run on your own model key, so ClicheFactory bills nothing for them."
+                )
+            result, cost = await cliche.extract_async(
+                file=file, mode=extraction_mode, return_cost=True
+            )
+        else:
+            result = await cliche.extract_async(file=file, mode=extraction_mode)
 
         if hasattr(result, "model_dump"):
             data = result.model_dump(mode="json")
@@ -102,6 +121,9 @@ async def extract(
             data = {"raw": result.raw, "validation_errors": result.validation_errors}
         else:
             data = result
+
+        if cost is not None:
+            data = {"result": data, "cost": cost.model_dump(mode="json")}
 
         return json.dumps(data, indent=2, ensure_ascii=False, default=str)
 
@@ -177,3 +199,34 @@ def doctor() -> str:
     Call this tool first when extraction fails, or to verify the setup is correct.
     """
     return run_doctor()
+
+
+_BALANCE_FIELDS = {
+    "balance_credits",
+    "currency",
+    "free_extraction_pages_remaining",
+    "pages_remaining",
+}
+
+
+@mcp.tool()
+async def balance() -> str:
+    """Show the ClicheFactory credit balance and how many pages it still buys.
+
+    Call it before a large batch to check there is enough left. Service mode
+    only: it reads the account of the configured CLICHEFACTORY_API_KEY.
+
+    Returns:
+        JSON with balance_credits, currency, free_extraction_pages_remaining
+        (used before credits), and pages_remaining: for each extraction mode
+        ("fast", "balanced", "robust", under "extract" and "extract_byok") and
+        for "to_markdown", the credits_per_page and the pages the balance
+        still buys (null when the rate is 0).
+    """
+    try:
+        client = build_client(mode="service")
+        bal = await client.balance_async()
+        data = bal.model_dump(mode="json", include=_BALANCE_FIELDS)
+        return json.dumps(data, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return format_error(e)

@@ -43,6 +43,10 @@ Converts a document to readable markdown. Use this to inspect contents before bu
 
 Checks configuration, Python dependencies, and system binaries. Call this when extraction fails to diagnose the issue.
 
+### balance
+
+Shows the credit balance and, per extraction mode, how many pages it still buys. Call it before a large batch. To see what one extraction cost, pass `include_cost: true` to `extract`: the output becomes `{"result": ..., "cost": {"pages", "credits_used", "credits_per_page"}}`. Service mode only.
+
 ## Workflow
 
 1. If the user provides a document without a schema, call `to_markdown` first to see the content.
