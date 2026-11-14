@@ -1,0 +1,47 @@
+# Runs the tests on every PR and on pushes to main.
+#
+# Installs the server the way users get it (`uvx clichefactory-mcp`: no
+# [local] extra), so a top-level import of a heavy optional dependency fails
+# here before it ships. The tests need no network and no keys; the live,
+# keyed checks are in clichefactory-test-suite.
+#
+# The release workflow (release.yml) runs the same tests before it publishes.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          # Packages don't commit uv.lock (see .gitignore), so key on pyproject.
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install
+        run: uv sync --python ${{ matrix.python }} --group dev
+
+      - name: Test
+        run: uv run pytest -q
+
+      - name: Release check for the version on this commit
+        run: python3 scripts/release_check.py "v$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cliche_mcp/__about__.py)"
