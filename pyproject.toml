@@ -31,6 +31,14 @@ Repository = "https://github.com/ClicheFactory/clichefactory-mcp"
 [tool.hatch.version]
 path = "cliche_mcp/__about__.py"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["cliche_mcp"]
 

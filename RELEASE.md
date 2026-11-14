@@ -1,208 +1,169 @@
 # Releasing `clichefactory-mcp`
 
-Checklist for cutting a new release of the MCP server to PyPI and GitHub.
-Versioning is SemVer (pre-1.0: minor for additive features, patch for
-bugfix / dependency bump / docs).
+Releases are published by GitHub Actions (`.github/workflows/release.yml`)
+when a version tag is pushed: to PyPI, then (final releases only) to the MCP
+registry, then as a GitHub release. Nothing is uploaded from a laptop and no
+token is stored anywhere: PyPI trusts this repo's release workflow (trusted
+publishing), the MCP registry trusts GitHub's OIDC token for the
+`io.github.ClicheFactory` namespace, and the PyPI step waits for the owner's
+approval.
 
-The single source of truth for the version is `cliche_mcp/__about__.py`.
-`pyproject.toml` reads it dynamically via `[tool.hatch.version]`.
+Versioning is SemVer (pre-1.0: minor for a new tool or other additive
+surface, patch for bugfix / dependency floor / docs). The version lives in
+three places, and the release check fails if they disagree:
 
-`clichefactory-mcp` has **no downstream consumers** — it's an end-user
-MCP server installed by hand (`pip install clichefactory-mcp` or `uvx
-clichefactory-mcp`), so there is no internal floor to bump after
-publishing. That's the main reason this checklist is shorter than the
-SDK's `RELEASE.md`.
+| File | Field |
+| --- | --- |
+| `cliche_mcp/__about__.py` | `__version__` (the source of truth; `pyproject.toml` reads it) |
+| `server.json` | `version` and `packages[0].version` (published to the MCP registry) |
+| `.plugin/plugin.json` | `version` (Claude plugin manifest) |
 
----
-
-## Prerequisites (one-time setup)
-
-- `uv` installed (`brew install uv`)
-- PyPI account with API token scoped to the `clichefactory-mcp` project:
-  https://pypi.org/manage/account/token/
-- Token saved as `UV_PUBLISH_TOKEN` in your shell environment, e.g. in
-  `~/.zshrc`:
-  ```bash
-  export UV_PUBLISH_TOKEN=pypi-AgEI...
-  ```
+`clichefactory-mcp` has no downstream consumers: users install it with
+`uvx clichefactory-mcp` or `pip install clichefactory-mcp`.
 
 ---
 
 ## Release checklist
 
-Copy this block into your scratchpad and tick off as you go:
-
 ```
-- [ ] 1. Pick the new version (X.Y.Z)
-- [ ] 2. Bump cliche_mcp/__about__.py
-- [ ] 3. (If clichefactory dep changed) bump floor in pyproject.toml + uv lock
-- [ ] 4. Update CHANGELOG.md
-- [ ] 5. Decide on README.md / other unstaged changes
-- [ ] 6. uv build (after wiping dist/)
-- [ ] 7. Smoke-test the wheel locally
-- [ ] 8. uv publish
-- [ ] 9. Commit, tag, push (main + tag)
-- [ ] 10. Optional: GitHub release in the UI
+- [ ] 1. PR: bump the version in all three files, add the CHANGELOG.md entry
+         (and the clichefactory floor, if this release needs a newer SDK)
+- [ ] 2. Merge it (tests must be green)
+- [ ] 3. Tag main and push the tag
+- [ ] 4. Approve the publish job in the Actions tab
+- [ ] 5. Check PyPI, the MCP registry and the GitHub release
 ```
 
----
-
-### 1. Pick the new version
+### 1. Version bump and changelog (in a PR)
 
 | Bump  | When                                                  |
 | ----- | ----------------------------------------------------- |
-| patch | Bugfix, dep floor bump, docs only, no API change      |
+| patch | Bugfix, SDK floor bump, docs only, no tool change     |
 | minor | New tool / new resource / additive surface change     |
 | major | Breaking change (post-1.0 only; pre-1.0 use minor)    |
 
-### 2. Bump `cliche_mcp/__about__.py`
-
-```python
-__version__ = "X.Y.Z"
-```
-
-This is the only place to change it.
-
-### 3. Bump the `clichefactory` floor (if needed)
-
-If this release is being cut to pick up SDK changes, bump the floor in
-`pyproject.toml`:
-
-```toml
-"clichefactory>=A.B.C",
-```
-
-…and refresh the local lock so smoke-tests resolve the new SDK
-(note: `uv.lock` is gitignored in this repo — only `pyproject.toml`
-ships, so the floor in `pyproject.toml` is what consumers will pin
-against):
-
-```bash
-uv lock --upgrade-package clichefactory
-grep -nE 'name = "clichefactory"|^version = "A\.B\.C"' uv.lock | head
-```
-
-### 4. Update `CHANGELOG.md`
-
-Add a new entry at the top following Keep a Changelog style:
+Set the version in `cliche_mcp/__about__.py`, `server.json` (both fields) and
+`.plugin/plugin.json`, and add an entry at the top of `CHANGELOG.md`. The
+GitHub release notes are this entry, so the heading must be exactly:
 
 ```markdown
 ## [X.Y.Z] — YYYY-MM-DD
-
-### Added / Changed / Fixed / Removed
-
-- Concise bullet describing the change.
 ```
 
-### 5. Decide on `README.md` / other unstaged changes
+If the release needs a newer SDK, raise the floor in `pyproject.toml`
+(`"clichefactory>=A.B.C"`). `uv.lock` is gitignored here, so the floor is
+what users get.
 
-Run `git status`. If unrelated edits are sitting there, either include
-them in this release if they're complete, or `git checkout -- <file>`
-to revert. Don't ship a half-finished README.
-
-### 6. `uv build` (after wiping `dist/`)
+Check it before pushing (standard library only, no install needed):
 
 ```bash
-cd ~/ClicheFactory/cliche-mcp
-rm -rf dist/
-uv build
-ls dist/
+python scripts/release_check.py vX.Y.Z
 ```
 
-Expect:
-- `clichefactory_mcp-X.Y.Z-py3-none-any.whl`
-- `clichefactory_mcp-X.Y.Z.tar.gz`
+### 2. Merge
 
-Wiping `dist/` first prevents `uv publish` from re-uploading old
-versions and getting a confusing 400 from PyPI.
+`tests.yml` runs on the PR: the tests on Python 3.12 and 3.13, installed
+without `[local]` the way `uvx` installs it, plus the release check for the
+version on the branch.
 
-### 7. Smoke-test the wheel locally
+### 3. Tag and push
 
 ```bash
-uv venv /tmp/cliche-mcp-test
-source /tmp/cliche-mcp-test/bin/activate
-uv pip install dist/clichefactory_mcp-X.Y.Z-py3-none-any.whl
-python -c "import cliche_mcp; print(cliche_mcp.__version__)"
-# Entry-point sanity: run it briefly with no stdin and kill, since
-# `clichefactory-mcp` boots an MCP stdio server (it has no --help).
-timeout 2 clichefactory-mcp </dev/null 2>&1 | head -5 || true
-deactivate
-rm -rf /tmp/cliche-mcp-test
+git fetch origin && git tag -a vX.Y.Z -m vX.Y.Z origin/main && git push origin vX.Y.Z
 ```
 
-If the version doesn't match, stop and figure out why before publishing.
+The release workflow then:
 
-### 8. `uv publish`
+1. checks the tag, the three version fields and the changelog agree, and
+   that the commit is on `main`;
+2. runs the tests, builds, installs the wheel in a clean venv and checks the
+   version it reports;
+3. **waits for approval**, then publishes to PyPI;
+4. waits until PyPI serves the new version, then publishes `server.json` to
+   the MCP registry (`mcp-publisher`, pinned, signature verified);
+5. creates the GitHub release.
+
+If step 1 or 2 fails, nothing is published. Fix it, delete the tag
+(`git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`), and tag again.
+
+### 4. Approve
+
+Actions tab → the `release` run → **Review deployments** → `pypi` → Approve.
+
+### 5. Check
+
+- https://pypi.org/project/clichefactory-mcp/ shows the new version.
+- `https://registry.modelcontextprotocol.io/v0/servers?search=clichefactory`
+  lists it.
+- https://github.com/ClicheFactory/clichefactory-mcp/releases has the release.
+
+---
+
+## Release candidates
+
+A pre-release (`X.Y.ZrcN`, also `aN` / `bN`) goes to PyPI and GitHub (marked
+pre-release) but **not** to the MCP registry, so registry users stay on the
+last final release. `uvx clichefactory-mcp` ignores pre-releases; try one
+with:
 
 ```bash
-uv publish
+uvx clichefactory-mcp==0.2.0rc1
 ```
 
-Reads `UV_PUBLISH_TOKEN` from the environment. Or pass `--token` inline:
+For an rc, only `__about__.py` and the changelog entry need the rc version;
+`server.json` and `plugin.json` keep naming the last final release until the
+final one. A pre-release may be tagged from a branch.
 
-```bash
-uv publish --token pypi-AgEI...
-```
+---
 
-Confirm on https://pypi.org/project/clichefactory-mcp/ that the new
-version shows up.
+## One-time setup (repo owner)
 
-### 9. Commit, tag, push
-
-```bash
-cd ~/ClicheFactory/cliche-mcp
-
-git add cliche_mcp/__about__.py CHANGELOG.md pyproject.toml
-# (uv.lock is gitignored in this repo — don't try to add it)
-# (also git add README.md if you're keeping those changes)
-
-git commit -m "<type>: <summary>
-
-Bumps version to X.Y.Z.
-
-<bullet list of changes>"
-
-git tag -a vX.Y.Z -m "vX.Y.Z"
-git push origin main
-git push origin vX.Y.Z
-```
-
-### 10. Optional: GitHub release in the UI
-
-Only useful if you want pretty release notes / downloadable artifacts.
-PyPI is the source of truth for `pip install`.
-
-1. https://github.com/ClicheFactory/clichefactory-mcp/releases
-2. **Draft a new release**
-3. Choose the existing tag `vX.Y.Z`, target `main`
-4. Title: `vX.Y.Z`
-5. Description: paste the relevant CHANGELOG entry
-6. Optionally drag in `dist/clichefactory_mcp-X.Y.Z-py3-none-any.whl`
-   and `clichefactory_mcp-X.Y.Z.tar.gz`
-7. Keep "Set as the latest release" checked, **Publish release**
+1. **PyPI → trusted publisher.** On
+   https://pypi.org/manage/project/clichefactory-mcp/settings/publishing/, add
+   a GitHub publisher:
+   - Owner: `ClicheFactory`
+   - Repository: `clichefactory-mcp`
+   - Workflow name: `release.yml`
+   - Environment name: `pypi`
+2. **GitHub → environment.** Repo Settings → Environments → New environment
+   `pypi`:
+   - Required reviewers: yourself ("Prevent self-review" off).
+   - Deployment branches and tags: "Selected branches and tags", add the tag
+     rule `v*`.
+3. **MCP registry:** nothing to set up. `mcp-publisher login github-oidc`
+   proves the workflow runs in a `ClicheFactory` repo, which is what the
+   `io.github.ClicheFactory/*` namespace requires. The registry also checks
+   that the PyPI README contains `mcp-name: io.github.ClicheFactory/clichefactory-mcp`
+   (it's at the top of `README.md`; keep it).
+4. **After the first release works,** revoke the old PyPI token.
 
 ---
 
 ## Troubleshooting
 
-### `uv publish` fails with 400 / "File already exists"
+### "File already exists" from PyPI
 
-PyPI does not allow re-uploading a version. You either:
-- forgot to bump `__about__.py`, or
-- left old artifacts in `dist/` from a previous release.
+PyPI never accepts the same version twice. Bump to the next patch (or the
+next `rcN`) and release that.
 
-Fix: bump to the next patch (e.g. `X.Y.(Z+1)`), wipe `dist/`, rebuild,
-republish. **Never** try to "fix" a published version in place — cut a
-new patch instead.
+### The check job fails
+
+The message lists every mismatch: tag vs `__about__.py`, a missing changelog
+entry, `server.json` / `plugin.json` lagging behind (final releases), or a
+final release tagged off `main`.
+
+### The registry job fails
+
+- "Package validation failed": PyPI didn't have the version yet, or the
+  README lost its `mcp-name:` line. Re-run the failed job from the Actions tab
+  once PyPI shows the version.
+- Signature verification failed: `MCP_PUBLISHER_VERSION` in `release.yml`
+  must be a real release tag of `modelcontextprotocol/registry`.
+
+PyPI and the GitHub release are not affected by a registry failure; re-run
+just that job.
 
 ### `clichefactory-mcp` still resolves the old `clichefactory` after a floor bump
 
-`uv lock --upgrade-package clichefactory` is the magic command.
-Without `--upgrade-package`, `uv lock` will keep the existing pinned
-version even if the floor moved. After running it, `grep` the lock
-file to confirm the new SDK version is actually pinned.
-
-### Token leaked into shell history
-
-Revoke it on PyPI immediately and generate a new one. Prefer
-`UV_PUBLISH_TOKEN` in `~/.zshrc` over inline `--token` for this reason.
+Locally: `uv lock --upgrade-package clichefactory`. Users get the floor from
+`pyproject.toml`, since `uv.lock` isn't shipped.

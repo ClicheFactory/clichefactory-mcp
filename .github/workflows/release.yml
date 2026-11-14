@@ -1,0 +1,186 @@
+# Publishes a release when a version tag is pushed.
+#
+#   git tag -a v0.2.0 -m v0.2.0 && git push origin v0.2.0
+#
+# 1. check:    the tag matches cliche_mcp/__about__.py and CHANGELOG.md has an
+#              entry; for a final release, server.json and .plugin/plugin.json
+#              carry the same version (scripts/release_check.py). A final
+#              release must be on main; a pre-release (v0.2.0rc1) may come
+#              from any branch.
+# 2. build:    tests, sdist and wheel, the wheel installed in a clean venv.
+# 3. publish:  PyPI trusted publishing in the `pypi` environment, whose
+#              required reviewer approves it in the Actions tab. No PyPI token
+#              is stored anywhere.
+# 4. registry: final releases only. Waits until PyPI serves the new version,
+#              then publishes server.json to the MCP registry, logging in with
+#              GitHub's OIDC token (namespace io.github.ClicheFactory). No
+#              secret is stored for this either. mcp-publisher is pinned and its
+#              Sigstore signature is verified before it runs.
+# 5. github-release: a GitHub release with the changelog entry and the built
+#              files; marked as a pre-release for rc/a/b.
+#
+# One-time setup (repo owner): see RELEASE.md, "One-time setup".
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      prerelease: ${{ steps.check.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag, versions and changelog agree
+        id: check
+        run: python3 scripts/release_check.py "$GITHUB_REF_NAME"
+
+      - name: A final release is on main
+        if: steps.check.outputs.prerelease == 'false'
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main. Merge first, or tag a pre-release (v...rc1) to test a branch."
+            exit 1
+          fi
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Test
+        run: |
+          uv sync --python 3.12 --group dev
+          uv run pytest -q
+
+      - name: Build
+        run: uv build
+
+      - name: Install the wheel in a clean venv and check its version
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          uv venv --python 3.12 /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python dist/*.whl
+          /tmp/smoke/bin/python -c "import os, cliche_mcp; v = cliche_mcp.__version__; assert v == os.environ['VERSION'], v; print(v)"
+          /tmp/smoke/bin/python -c "from cliche_mcp.server import mcp"
+          test -x /tmp/smoke/bin/clichefactory-mcp
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/clichefactory-mcp/${{ needs.check.outputs.version }}/
+    permissions:
+      id-token: write  # trusted publishing: lets PyPI verify this workflow
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  registry:
+    needs: [check, publish]
+    if: needs.check.outputs.prerelease == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # mcp-publisher login github-oidc
+      contents: read
+    env:
+      # Upgrade deliberately: change the tag here, never use releases/latest.
+      MCP_PUBLISHER_VERSION: v1.8.7
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait until PyPI serves this version
+        # The registry checks the package exists on PyPI; right after upload
+        # the API can lag for a minute or two.
+        run: |
+          for i in $(seq 1 30); do
+            if curl --fail --silent --output /dev/null "https://pypi.org/pypi/clichefactory-mcp/${VERSION}/json"; then
+              echo "PyPI has ${VERSION}"; exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::PyPI still doesn't serve clichefactory-mcp ${VERSION} after 5 minutes"
+          exit 1
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Download and verify mcp-publisher
+        run: |
+          set -euo pipefail
+          os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          arch="$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+          archive="mcp-publisher_${os}_${arch}.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+
+      - name: Log in to the MCP registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish server.json
+        run: ./mcp-publisher publish
+
+  github-release:
+    needs: [check, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.check.outputs.prerelease }}
+        run: |
+          python3 scripts/release_check.py "$GITHUB_REF_NAME" --notes-out notes.md
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag "${flags[@]}"
