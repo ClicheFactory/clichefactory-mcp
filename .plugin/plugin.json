@@ -1,6 +1,6 @@
 {
   "name": "clichefactory",
-  "version": "0.1.9",
+  "version": "0.2.0",
   "description": "Extract structured JSON from PDFs, images, DOCX, XLSX, CSV, EML with attachments, train your DSPy pipelines and more using ClicheFactory.",
   "author": {
     "name": "Urban Susnik s.p.",
