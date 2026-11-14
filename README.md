@@ -36,6 +36,7 @@ That's it — one env var (`CLICHEFACTORY_API_KEY`) or a config file, and you're
 | `extract` | Extract structured JSON from a document using a schema |
 | `to_markdown` | Convert a document to markdown text |
 | `doctor` | Check configuration, dependencies, and system binaries |
+| `balance` | Show your credit balance and how many pages it still buys (service mode) |
 
 ### `extract`
 
@@ -55,6 +56,10 @@ The schema can be provided as:
 - **File path**: absolute path to a `.json` schema file
 - **Inline dict**: the LLM constructs a JSON schema from the conversation (e.g., the user says *"extract the invoice number and total"* and the LLM builds `{"type": "object", "properties": {"invoice_number": {"type": "string"}, "total": {"type": "number"}}}`)
 
+In service mode, pass `include_cost: true` to see what the call cost. The output is then
+`{"result": <extracted data>, "cost": {"pages": 3, "credits_used": 30, "credits_per_page": 10}}`
+(`credits_used` is 0 when free pages covered it). Without it, the output is the extracted data as before.
+
 ### `to_markdown`
 
 Converts any supported document to markdown. Useful for inspecting document contents or feeding them to the LLM for analysis before deciding on an extraction schema.
@@ -62,6 +67,10 @@ Converts any supported document to markdown. Useful for inspecting document cont
 ### `doctor`
 
 Runs diagnostics on the ClicheFactory setup — config file, API keys, Python dependencies, system binaries. Call this when things aren't working.
+
+### `balance`
+
+The credit balance of the account your `CLICHEFACTORY_API_KEY` belongs to: credits, free extraction pages left, and for each extraction mode (`fast`, `balanced`, `robust`) and to-markdown, how many pages the balance still buys. Useful before a large batch. Service mode only.
 
 ## Execution Modes
 
@@ -158,7 +167,7 @@ Register the MCP server with your [OpenClaw](https://github.com/openclaw/opencla
 openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"CLICHEFACTORY_API_KEY":"cliche-your-key-here"}}'
 ```
 
-Verify with `openclaw mcp list`. The agent can now use `extract`, `to_markdown`, and `doctor` tools in any conversation.
+Verify with `openclaw mcp list`. The agent can now use the `extract`, `to_markdown`, `doctor` and `balance` tools in any conversation.
 
 An OpenClaw skill with agent instructions is also available in [`integrations/openclaw/`](integrations/openclaw/SKILL.md). To install it into your workspace:
 

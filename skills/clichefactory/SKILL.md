@@ -12,6 +12,7 @@ The plugin provides the `clichefactory` MCP server with these tools:
 - `extract`: Extract structured JSON from a document using a JSON schema.
 - `to_markdown`: Convert a document to readable markdown before building a schema or debugging extraction.
 - `doctor`: Check configuration, dependencies, credentials, and system binaries.
+- `balance`: Show the credit balance and how many pages it still buys. Check it before a large batch; pass `include_cost: true` to `extract` to see what each call cost.
 
 ## Configuration
 
