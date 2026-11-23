@@ -260,6 +260,68 @@ def run_doctor() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Model drafts (POST /v1/models/draft)
+# ---------------------------------------------------------------------------
+
+_DRAFT_TIMEOUT_S = 180.0
+_DRAFT_FIELDS = ("json_schema", "model", "summary", "notes", "language", "credits_used")
+
+
+async def request_model_draft(
+    *,
+    description: str,
+    current_model: dict[str, Any] | None = None,
+    language: str | None = None,
+) -> dict[str, Any]:
+    """Draft a data model on the ClicheFactory service; returns the useful response fields.
+
+    Uses the same API key and base URL as service-mode extraction. Raises
+    ``ConfigurationError`` without a key and ``ClicheFactoryError`` on a
+    rejected or failed draft, with the service's reason in the message.
+    """
+    import httpx
+
+    from clichefactory._service_url import resolve_service_base_url
+
+    cfg = load_config()
+    api_key = resolve_api_key(cli_flag=None, cfg=cfg)
+    if not api_key:
+        raise ConfigurationError(
+            ErrorInfo(
+                code="mcp.missing_api_key",
+                message="draft_model needs a ClicheFactory API key (service mode).",
+                hint=_SERVICE_KEY_HINT,
+            )
+        )
+    url = resolve_service_base_url(resolve_base_url(cli_flag=None, cfg=cfg)) + "/v1/models/draft"
+    body: dict[str, Any] = {"description": description}
+    if current_model is not None:
+        body["current_model"] = current_model
+    if language:
+        body["language"] = language
+
+    async with httpx.AsyncClient(timeout=_DRAFT_TIMEOUT_S) as http:
+        resp = await http.post(url, json=body, headers={"X-API-KEY": api_key})
+
+    if resp.status_code == 200:
+        data = resp.json()
+        return {k: data[k] for k in _DRAFT_FIELDS if k in data}
+
+    try:
+        detail: Any = resp.json().get("detail")
+    except ValueError:
+        detail = resp.text[:500]
+    if resp.status_code == 422 and isinstance(detail, dict):
+        problems = "; ".join(str(p) for p in detail.get("problems") or [])
+        message = f"{detail.get('detail') or 'Could not draft a valid model.'} Problems: {problems}"
+        hint = "Describe the fields more concretely, or split a long request into smaller ones."
+    else:
+        message = f"Model draft failed (HTTP {resp.status_code}): {detail}"
+        hint = "HTTP 403 usually means the balance is too low; call balance."
+    raise ClicheFactoryError(ErrorInfo(code="mcp.model_draft_failed", message=message, hint=hint))
+
+
+# ---------------------------------------------------------------------------
 # Error formatting
 # ---------------------------------------------------------------------------
 

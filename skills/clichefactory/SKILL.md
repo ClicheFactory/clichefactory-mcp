@@ -10,6 +10,7 @@ Use ClicheFactory when the user needs structured data extracted from documents, 
 The plugin provides the `clichefactory` MCP server with these tools:
 
 - `extract`: Extract structured JSON from a document using a JSON schema.
+- `draft_model`: Draft a schema from the user's plain-language list of fields; its `json_schema` goes straight into `extract`.
 - `to_markdown`: Convert a document to readable markdown before building a schema or debugging extraction.
 - `doctor`: Check configuration, dependencies, credentials, and system binaries.
 - `balance`: Show the credit balance and how many pages it still buys. Check it before a large batch; pass `include_cost: true` to `extract` to see what each call cost.
@@ -27,8 +28,8 @@ Environment variables take precedence over the config file.
 
 ## Workflow
 
-1. If the user gives a document and no schema, call `to_markdown` first to inspect the contents.
-2. Build a JSON schema from the user's requested fields and the document contents.
+1. If the user describes the fields but has no schema, call `draft_model` with their description. Tell them what its `notes` say, and use its `json_schema` as the schema. To change it, call `draft_model` again with `current_model` set to the returned `model`.
+2. Otherwise, if the user gives a document and no schema, call `to_markdown` first to inspect the contents, then build a JSON schema from the requested fields and the document.
 3. Call `extract` with the file path and schema (service mode is the default).
 4. If extraction returns validation errors, adjust the schema or field descriptions and retry.
 5. If extraction fails entirely, call `doctor` to check whether the API key is configured.
@@ -36,6 +37,11 @@ Environment variables take precedence over the config file.
 ## Schema Tips
 
 Schemas follow standard JSON Schema. Add clear `description` fields for ambiguous values, normalized dates, totals, currencies, and line items.
+
+- A yes/no question is `"type": "boolean"`; it comes back as `true` or `false`, never as "yes"/"no".
+- When the answer is one of a few fixed options (document type, status), use `"type": "string"` with `"enum": [...]`. Only those values are accepted.
+- `pattern` (e.g. a VIN `^[A-HJ-NPR-Z0-9]{17}$`), `minLength` / `maxLength` and `minimum` / `maximum` are checked. A value that breaks one, or an `enum`, is a validation error naming the field.
+- Fields left out of `required` may come back `null`.
 
 Example invoice schema:
 
