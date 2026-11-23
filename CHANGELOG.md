@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (pre-1.0: minor for additive features, patch for bugfix / dependency
 bump / docs).
 
+## [0.3.0] — 2026-11-23
+
+### Added
+
+- **`draft_model` tool.** Describe the fields you need in plain language (any
+  language) and get a schema back: `json_schema` goes straight into
+  `extract`, `model` is sent back as `current_model` to refine the draft, and
+  `notes` say what the draft assumed or could not express. Service mode
+  (`POST /v1/models/draft`), billed per draft.
+
+### Changed
+
+- **Schemas can say more, and the tool descriptions say so.** `enum` limits a
+  field to the listed values; `pattern`, `minLength` / `maxLength` and
+  `minimum` / `maximum` are checked, so a value that breaks one is a
+  validation error naming the field. A `boolean` field comes back as `true` /
+  `false`, never as "yes" / "no". The example schema shows both.
+- Requires `clichefactory>=0.10.0`, which enforces these keywords in local mode
+  too (service mode enforces them server-side).
+
 ## [0.2.0] — 2026-11-14
 
 Same code as 0.2.0rc1. This release also updates the MCP registry entry (it was at 0.1.7).

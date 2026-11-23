@@ -34,6 +34,7 @@ That's it — one env var (`CLICHEFACTORY_API_KEY`) or a config file, and you're
 | Tool | Description |
 |------|-------------|
 | `extract` | Extract structured JSON from a document using a schema |
+| `draft_model` | Draft a schema from a plain-language list of fields (service mode) |
 | `to_markdown` | Convert a document to markdown text |
 | `doctor` | Check configuration, dependencies, and system binaries |
 | `balance` | Show your credit balance and how many pages it still buys (service mode) |
@@ -59,6 +60,26 @@ The schema can be provided as:
 In service mode, pass `include_cost: true` to see what the call cost. The output is then
 `{"result": <extracted data>, "cost": {"pages": 3, "credits_used": 30, "credits_per_page": 10}}`
 (`credits_used` is 0 when free pages covered it). Without it, the output is the extracted data as before.
+
+What the schema can say, and what comes back:
+
+| In the schema | In the output |
+|---|---|
+| `"type": "string"` / `"integer"` / `"number"` | a JSON string / whole number / number |
+| `"type": "boolean"` | `true` or `false` (never `"yes"` / `"no"`) |
+| `"enum": [...]` on a string | one of the listed values; anything else is a validation error |
+| `pattern`, `minLength` / `maxLength`, `minimum` / `maximum` | checked; a value that breaks one is a validation error naming the field |
+| a field left out of `required` | may be `null` when the document doesn't have it |
+
+### `draft_model`
+
+For when there is no schema yet. Describe the fields in any language (*"from vehicle registration photos: the VIN, the owner, the document type, and whether the photo is sharp"*) and get back:
+
+- `json_schema`: pass it to `extract` as `schema`, unchanged;
+- `model`: send it back as `current_model` with a change (*"also the first registration date"*) to refine the draft;
+- `summary` and `notes`: what the draft assumed or could not express. Worth reading before a large batch.
+
+Billed per draft (see `balance`); a draft that can't be turned into a valid model is not billed and returns the problems.
 
 ### `to_markdown`
 
@@ -167,7 +188,7 @@ Register the MCP server with your [OpenClaw](https://github.com/openclaw/opencla
 openclaw mcp set clichefactory '{"command":"uvx","args":["clichefactory-mcp"],"env":{"CLICHEFACTORY_API_KEY":"cliche-your-key-here"}}'
 ```
 
-Verify with `openclaw mcp list`. The agent can now use the `extract`, `to_markdown`, `doctor` and `balance` tools in any conversation.
+Verify with `openclaw mcp list`. The agent can now use the `extract`, `draft_model`, `to_markdown`, `doctor` and `balance` tools in any conversation.
 
 An OpenClaw skill with agent instructions is also available in [`integrations/openclaw/`](integrations/openclaw/SKILL.md). To install it into your workspace:
 

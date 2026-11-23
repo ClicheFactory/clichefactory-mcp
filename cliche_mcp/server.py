@@ -11,7 +11,13 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from cliche_mcp.helpers import build_client, format_error, resolve_schema, run_doctor
+from cliche_mcp.helpers import (
+    build_client,
+    format_error,
+    request_model_draft,
+    resolve_schema,
+    run_doctor,
+)
 
 mcp = FastMCP(
     "clichefactory-mcp",
@@ -19,12 +25,19 @@ mcp = FastMCP(
         "ClicheFactory MCP server for structured data extraction from documents.\n\n"
         "Tools:\n"
         "- extract: Pull structured JSON from a document using a schema.\n"
+        "- draft_model: Turn a plain-language list of fields into a schema for extract.\n"
         "- to_markdown: Convert a document to readable markdown.\n"
         "- doctor: Check configuration and dependencies.\n"
         "- balance: Show the credit balance and how many pages it still buys.\n\n"
         "Default execution mode is service (ClicheFactory cloud) — best quality, "
         "requires CLICHEFACTORY_API_KEY from clichefactory.com → Settings → API Keys.\n"
         "Local mode (BYOK) is available via mode=\"local\" for advanced users.\n\n"
+        "No schema yet? Call draft_model with what the user wants extracted, read its "
+        "notes, then pass its json_schema to extract as the schema.\n\n"
+        "Schemas are JSON Schema. enum limits a field to listed values; pattern, "
+        "minLength/maxLength and minimum/maximum are checked; a boolean field comes "
+        "back as JSON true or false (null when an optional one isn't answered). "
+        "A value that breaks enum or pattern is a validation error naming the field.\n\n"
         "If extraction fails, call doctor to check credentials. "
         "If extract returns a validation error, try to_markdown first to inspect the "
         "document, then build a better schema from what you see.\n\n"
@@ -61,8 +74,17 @@ async def extract(
     Args:
         file: Absolute path to the document file.
         schema: Either an absolute file path to a JSON schema, or an inline
-            JSON schema object. Example inline schema:
-            {"type": "object", "properties": {"invoice_number": {"type": "string"}, "total": {"type": "number"}}}
+            JSON schema object, e.g. the json_schema from draft_model. Example:
+            {"type": "object", "properties": {
+                "invoice_number": {"type": "string"},
+                "total": {"type": "number"},
+                "document_type": {"type": "string", "enum": ["invoice", "credit_note", "other"]},
+                "is_paid": {"type": "boolean", "description": "True if marked as paid"}},
+             "required": ["invoice_number", "document_type"]}
+            Fields not in "required" may come back null. enum values are the
+            only ones accepted; pattern, minLength/maxLength and minimum/maximum
+            are checked too, and a value that breaks one is a validation error.
+            A boolean comes back as true or false, never as "yes"/"no".
         mode: Execution mode — "service" (ClicheFactory cloud, default) or
             "local" (BYOK, runs on user's machine). Auto-detected from credentials
             when omitted.
@@ -127,6 +149,49 @@ async def extract(
 
         return json.dumps(data, indent=2, ensure_ascii=False, default=str)
 
+    except Exception as e:
+        return format_error(e)
+
+
+@mcp.tool()
+async def draft_model(
+    description: str,
+    current_model: dict[str, Any] | None = None,
+    language: str | None = None,
+) -> str:
+    """Draft an extraction schema from a plain-language description of the fields.
+
+    Use it when the user says what they want from their documents but has no
+    schema. Then pass the returned json_schema to extract as `schema`. Service
+    mode only (needs CLICHEFACTORY_API_KEY); one flat charge per draft, see
+    balance.
+
+    Args:
+        description: What to extract, in any language, e.g. "From vehicle
+            registration photos: the VIN, the owner, the document type
+            (registration, insurance or other), and whether the photo is sharp".
+            With current_model, the change to make instead.
+        current_model: The "model" from an earlier draft_model result, to change
+            it rather than start over. Each call is independent: send the latest
+            model back each time.
+        language: Two-letter code for summary and notes. Detected when omitted.
+
+    Returns:
+        JSON with:
+        - json_schema: the schema to pass to extract unchanged. Field types are
+          string (with enum when the answer is one of fixed options), integer,
+          number, date strings, boolean (true / false) and arrays of objects.
+        - model: the same model in ClicheFactory's editor format; send it back
+          as current_model to refine.
+        - summary and notes: what was assumed or could not be expressed. Read
+          the notes and tell the user about them before a large batch.
+        - credits_used.
+    """
+    try:
+        data = await request_model_draft(
+            description=description, current_model=current_model, language=language
+        )
+        return json.dumps(data, indent=2, ensure_ascii=False)
     except Exception as e:
         return format_error(e)
 

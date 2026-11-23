@@ -31,6 +31,17 @@ Primary tool. Takes a document file path and a JSON schema, returns structured J
 - `extraction_mode` — omit for default OCR+LLM, or `"fast"` for multimodal LLM without OCR
 - `model` — LLM override, e.g. `"openai/gpt-4o"`
 
+A `boolean` field comes back as `true` / `false` (never "yes" / "no"). `enum` limits a string to the listed values, and `pattern`, `minLength` / `maxLength` and `minimum` / `maximum` are checked: a value that breaks one is a validation error naming the field. Fields not in `required` may be `null`.
+
+### draft_model
+
+Drafts a schema from a plain-language description of the fields (any language). Returns `json_schema` (pass it to `extract` unchanged), `model` (send it back as `current_model` to refine), and `summary` / `notes` (what the draft assumed or could not express). Service mode, billed per draft.
+
+**Parameters:**
+- `description` — what to extract, or with `current_model`, the change to make
+- `current_model` — the `model` from an earlier draft (optional)
+- `language` — two-letter code for summary and notes (optional)
+
 ### to_markdown
 
 Converts a document to readable markdown. Use this to inspect contents before building a schema, or when extract fails and you need to understand the document structure.
@@ -49,8 +60,8 @@ Shows the credit balance and, per extraction mode, how many pages it still buys.
 
 ## Workflow
 
-1. If the user provides a document without a schema, call `to_markdown` first to see the content.
-2. Build a JSON schema from what you see (or from the user's description of what they need).
+1. If the user describes the fields but has no schema, call `draft_model`, tell them what its `notes` say, and use its `json_schema`.
+2. Otherwise, call `to_markdown` to see the document, and build a JSON schema from what you see.
 3. Call `extract` with the file and schema (service mode is the default).
 4. If extraction returns validation errors, inspect them — the schema may need adjustment (wrong types, missing fields, etc.).
 5. If extraction fails entirely, call `doctor` to check whether the API key is configured.
